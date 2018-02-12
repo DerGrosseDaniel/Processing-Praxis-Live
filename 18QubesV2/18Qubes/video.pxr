@@ -1,0 +1,325 @@
+@ /video root:video {
+  #%pxr.format 2
+  .renderer OpenGL
+  .width 1920
+  .height 1080
+  @ ./p3d-1 video:gl:p3d {
+    #%graph.x 188
+    #%graph.y 152
+    .code "import java.text.SimpleDateFormat;
+import java.io.PrintWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+    
+    @P(24)
+    @Type.Boolean(def = false)
+    boolean writeOBJ;
+    
+    @P(1)
+    @Type.Number(min = 0, max = 100, def = 6)
+    float cols;
+    
+    @P(2)
+    @Type.Number(min = 0, max = 100, def = 3)
+    float rows;
+    
+    @P(3)
+    @Type.Number(min = 0, max = 40, def = 3)
+    float subDivisionsZ;
+    
+    
+    @P(4)
+    @Type.Number(min = 0, max = 40, def = 3)
+    float subDivisions;
+    
+    @P(5)
+    @Type.Number(min = 0, max = 100, def = 36)
+    float subDivisionSpacing;
+    
+    @P(6)
+    @Type.Number(min = 0, max = 1000, def = 100)
+    float borderX;
+    
+    @P(7)
+    @Type.Number(min = 0, max = 1000, def = 80)
+    float borderY;
+    
+    @P(8)
+    @Type.Number(min = 0, max = 1000, def = 6.8)
+    float noiseZScale;
+    
+    @P(9)
+    @Type.Number(min = 0, max = 1000, def = 17)
+    float noiseXYScale;
+    
+    @P(10)
+    @Type.Boolean(def = false)
+    boolean cameraOnButtom;
+    
+    @P(11)
+    @Type.Number(min = -5000, max = 5000, def = -170)
+    float cameraBack;
+    
+    @P(12)
+    @Type.Number(min = 0, max = 1000, def = 0)
+    float zOffset;
+    
+    @P(13)
+    @Type.Number(min = 0, max = 1000, def = 130)
+    float startMinZDistance;
+ 
+    @P(14)
+    @Type.Number(min = 0, max = 10000, def = 850)
+    float startMaxZDistance;
+    
+    @P(15)
+    @Type.Number(min = 0, max = 10000, def = 1630)
+    float startMaxXYDistance;
+    
+    @P(16)
+    @Type.Boolean(def = false)
+    boolean showPointPath;
+    
+    @P(17)
+    @Type.Number(min = -7, max = 1, def = -4)
+    float globalTimer;
+    
+    @P(22)
+    @Type.Number(min = -7, max = 1, def = -2.5)
+    float globalTimerMin;
+    
+    @P(23)
+    @Type.Number(min = 0.001, max = 0.2, def = 0.01)
+    float globalTimerDiffPerFrame;
+    
+    @P(18)
+    @Type.Number(min = 0, max = 5, def = 0.8)
+    float timingDifferenceGroups;
+    
+    @P(19)
+    @Type.Number(min = 0, max = 5, def = 0.08)
+    float timingDifferenceGroupIntern;
+    
+    @P(20)
+    @Type.Number(min = 0, max = 30000, def = 8000)
+    float dotSize;
+    
+    @P(21)
+    @Type.Boolean(def = false)
+    boolean run;
+    
+    PVector cameraPos;
+    ArrayList<Particle> particles = new ArrayList<Particle>();
+
+    
+    @Override
+    public void setup() \{ 
+        cameraPos = new PVector(width/2.0, width, -500);
+        initEverything();
+        stroke(255);
+    \}
+
+    @Override
+    public void draw() \{
+        if(run)\{
+            globalTimer+=globalTimerDiffPerFrame;
+            if(globalTimer >=1)\{
+                globalTimer = globalTimerMin;
+            \}
+        \}
+        if(cameraOnButtom)\{
+            cameraPos = new PVector(width/2.0, width+cameraBack, -500);
+            //camera(cameraPos.x, cameraPos.y, cameraPos.z, width/2.0, height/2.0, 0, 0, 1, 0);
+            camera(cameraPos.x, cameraPos.y, cameraPos.z, width/2.0, height/2.0, 500, 0, 1, 0);
+        \}
+        cols = Math.round(cols);
+        rows = Math.round(rows);
+        subDivisions = Math.round(subDivisions);
+        
+        
+        if(writeOBJ)\{
+            float timer = globalTimerMin;  
+            int frame = 0;
+            while(timer<=1)\{
+                
+
+                String fileOutput=\"\";
+                for(Particle p : particles)\{
+                    PVector pos = p.getPos(timer); 
+                    fileOutput += \"v \" + pos.x + \" \" + pos.y + \" \" + pos.z + \"\\n\";
+                \}
+
+                try\{
+                    PrintWriter output = new PrintWriter(\"/tmp/wuerfel\"+frame+\".obj\");
+                    output.println(fileOutput);
+                    output.flush(); // Writes the remaining data to the file
+                    output.close(); // Finishes the file
+                \} catch (Exception e)\{\}
+                timer+=globalTimerDiffPerFrame;
+                frame++;
+            \}
+            writeOBJ = false;
+        \}
+        
+
+        for (Particle p : particles)\{
+            p.drawParticle(globalTimer);
+        \}
+
+    \}
+    
+    
+    @T(2) void initEverything()\{
+        //delete all Particles
+        particles.clear();
+        
+        //Generate Particles
+        for(int i = 0; i<rows; i++)\{
+            for(int j = 0; j<cols; j++)\{
+                double centerX = borderX + (width-2*borderX)/cols*(0.5+j);
+                double centerY = borderY + (height-2*borderY)/rows*(0.5+i);
+                double timeOffsetGroup = random(0,timingDifferenceGroups);
+                for(int k = 0; k<subDivisions; k++)\{ //subdivisions rows
+                    for(int l = 0; l<subDivisions; l++)\{ //subdivisions cols
+                        for(int m = 0; m < subDivisionsZ; m++)\{ //subdivisions z
+                            double subX = centerX + subDivisionSpacing*(k-(subDivisions-1)/2.0);
+                            double subY = centerY + subDivisionSpacing*(l-(subDivisions-1)/2.0);
+                            subX = subX + (noise(subX, subY, subX)-0.5)*noiseXYScale;
+                            subY = subY + (noise(subX, subY, subY)-0.5)*noiseXYScale;
+                            double subZ = (noise(subX,subY)-0.5) * noiseZScale + subDivisionSpacing*m;
+
+                            double startX = subX + random(-startMaxXYDistance, startMaxXYDistance);
+                            double startY = subY + random(-startMaxXYDistance, startMaxXYDistance);
+                            double startZ = subZ + random(startMinZDistance, startMaxZDistance);
+
+                            double timeOffset = timeOffsetGroup + random(0,timingDifferenceGroupIntern);
+                            particles.add(new Particle(new PVector(subX,subY,subZ), new PVector(startX,startY,startZ),(float)timeOffset));
+                        \}
+                    \}
+                \}
+            \}
+        \}
+        
+    \}
+    
+    public static float  easeInOut(float t,float b , float c, float d) \{ //expo t (is 0...d), b is start value, c is distance
+            if (t==0) return b;
+            if (t==d) return b+c;
+            if ((t/=d/2) < 1) return c/2 * (float)Math.pow(2, 10 * (t - 1)) + b;
+            return c/2 * (-(float)Math.pow(2, -10 * --t) + 2) + b;
+    \}
+    
+    class Particle \{ 
+        PVector gridPos, startPos, controlGrid, controlStart;
+        float globalTimer = 0;
+        float timeOffset;
+        
+        Particle (PVector target, PVector start, float timeOffset) \{
+          this.timeOffset = timeOffset;
+          gridPos = target.copy();
+          startPos = start.copy();
+          controlGrid = new PVector(gridPos.x, gridPos.y, (gridPos.z+startPos.z)/2);
+          controlStart = new PVector((gridPos.x+startPos.x)/2, (gridPos.y+startPos.y)/2, startPos.z);
+        \}
+        
+        void setGlobalTimer(float timer)\{
+            globalTimer = timer;
+        \}
+        
+        PVector getPos(float timer)\{
+            float newPos = easeInOut(timer+timeOffset, 0, 1, 1);
+            
+            
+            double x = bezierPoint(startPos.x, controlStart.x, controlGrid.x, gridPos.x, newPos);
+            double y = bezierPoint(startPos.y, controlStart.y, controlGrid.y, gridPos.y, newPos);
+            double z = bezierPoint(startPos.z, controlStart.z, controlGrid.z, gridPos.z, newPos);
+            
+            return new PVector(x,y,z);
+        \}
+        
+        void drawParticle()\{
+            float newPos = easeInOut(globalTimer+timeOffset, 0, 1, 1);
+            
+            
+            double x = bezierPoint(startPos.x, controlStart.x, controlGrid.x, gridPos.x, newPos);
+            double y = bezierPoint(startPos.y, controlStart.y, controlGrid.y, gridPos.y, newPos);
+            double z = bezierPoint(startPos.z, controlStart.z, controlGrid.z, gridPos.z, newPos);
+                   
+            ellipseMode(RADIUS);
+            stroke(255);
+            strokeWeight(dotSize/cameraPos.dist(new PVector(x,y,z)));
+            point(x,y,z+zOffset);
+            if(showPointPath)\{
+                strokeWeight(0.5);
+                noFill();
+                stroke(255,50);
+                bezier(startPos.x, startPos.y, startPos.z, controlStart.x, controlStart.y, controlStart.z, controlGrid.x, controlGrid.y, controlGrid.z, gridPos.x, gridPos.y, gridPos.z);
+            \}
+        \}
+        
+        void drawParticle(float newPos)\{
+            setGlobalTimer(newPos);
+            drawParticle();
+        \}
+
+      \} 
+
+"
+    .sub-divisions-z 4
+    .sub-divisions 4
+    .sub-division-spacing 36.054421768707485
+    .noise-z-scale 6.802721088435374
+    .noise-xy-scale 17.006802721088437
+    .camera-on-buttom true
+    .camera-back -170.0680272108848
+    .start-min-z-distance 132.65306122448982
+    .start-max-z-distance 850.3401360544217
+    .start-max-xy-distance 1632.6530612244896
+    .show-point-path true
+    .global-timer -0.2100021243095398
+    .timing-difference-groups 0.7993197278911566
+    .timing-difference-group-intern 0.08503401360544219
+    .dot-size 7959.183673469388
+    .run true
+    .global-timer-diff-per-frame 0.009999999776482582
+  }
+  @ ./output-1 video:output {
+    #%graph.x 1052
+    #%graph.y 309
+    .width 1920
+    .height 1080
+    .undecorated true
+  }
+  @ ./p3d-2 video:gl:p3d {
+    #%graph.x 585
+    #%graph.y 492
+    .code "
+
+import java.io.PrintWriter;
+
+
+    @Override
+    public void setup() \{
+        
+    \}
+
+    @Override
+    public void draw() \{
+    \}
+    
+    @T(1) void writeOBJ()\{
+    try\{
+            PrintWriter output = new PrintWriter(\"/tmp/output.obj\");
+            output.println(\"hallo\");
+            output.flush(); // Writes the remaining data to the file
+            output.close(); // Finishes the file
+        \} catch (Exception e)\{\}
+    \}
+"
+  }
+  ~ ./p3d-1!out ./output-1!in
+  ~ ./p3d-2!out ./output-1!in
+}
